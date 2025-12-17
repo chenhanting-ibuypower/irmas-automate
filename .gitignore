@@ -6,3 +6,5 @@ output/
 __pycache__/
 chromium/
 chromium_profile/
+dist/
+build/

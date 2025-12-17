@@ -1,13 +1,14 @@
 import json
 import glob
 from packaging import version
+from app.paths import internal_path
 import os
 
 # ---------------------------
 # Load policy config
 # ---------------------------
 
-POLICY_PATH = os.path.join("config", "software_policy.json")
+POLICY_PATH = internal_path("config/software_policy.json")
 
 with open(POLICY_PATH, "r", encoding="utf-8") as f:
     policy = json.load(f)

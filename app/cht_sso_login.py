@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from smartcard.System import readers
 from playwright.sync_api import Page, TimeoutError
 
-
 class ChtSsoLogin:
     """
     Generic CHT SSO login helper.

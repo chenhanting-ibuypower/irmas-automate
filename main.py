@@ -2,11 +2,11 @@ import os
 import re
 import sys
 import json
-import pwinput
 import shutil
 from pathlib import Path
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, Page
+from app.paths import internal_path, external_path
 from app.irmas_scan_outdated_version import run_outdated_scan
 from app.irmas_generate_paginated_json import IrmasReportMerger
 from app.irmas_report_generator import IrmasReportGenerator
@@ -26,15 +26,6 @@ detail_results = []
 # -----------------------------
 load_dotenv()
 
-env_account = os.getenv("EMS_ACCOUNT")
-env_card_password = os.getenv("EMS_CARD_PASSWORD")
-
-account = env_account or input("請輸入您的帳號: ")
-card_password = env_card_password or pwinput.pwinput(
-    "請輸入您的卡片密碼(通常是身分證後8碼): ",
-    mask="*"
-)
-
 def get_base_dir():
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
@@ -42,7 +33,7 @@ def get_base_dir():
 
 BASE_DIR = get_base_dir()
 
-CHROMIUM_PATH = os.path.join(BASE_DIR, "chromium", "chrome.exe")
+CHROMIUM_PATH = internal_path("chromium/chrome.exe")
 CHROMIUM_PROFILE = os.path.join(BASE_DIR, "chromium_profile")
 
 os.makedirs(CHROMIUM_PROFILE, exist_ok=True)
@@ -96,7 +87,7 @@ def banned_software_finding_procedure(page: Page):
     page.wait_for_timeout(300)
 
     # Load array directly (no object wrapper)
-    banned_software_config_path = os.path.join(os.path.dirname(__file__), "config", "banned_software.json")
+    banned_software_config_path = internal_path("config/banned_software.json")
     with open(banned_software_config_path, "r", encoding="utf-8") as f:
         banned_keywords = json.load(f)
 
@@ -543,10 +534,9 @@ def audit_specific_software(page: Page):
     # ────────────────────────────────────────────────
     # 4) Generate config/software_latest_version_example.json
     # ────────────────────────────────────────────────
-    config_dir = "./config"
+    config_dir = external_path("config")
     os.makedirs(config_dir, exist_ok=True)
-
-    example_config_path = os.path.join(config_dir, "software_latest_version_example.json")
+    example_config_path = config_dir / "software_latest_version_example.json"
 
     with open(example_config_path, "w", encoding="utf-8") as f:
         json.dump(software_version_map, f, ensure_ascii=False, indent=4)

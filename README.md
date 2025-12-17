@@ -217,3 +217,9 @@ Some software names such as **"Steam"** and **"Tor"** are not included in `banne
 - `"Tor"` may match `"store"`
 
 To avoid incorrect detection, these terms are handled in code using **exact match**, **regex word boundaries**, or stricter matching logic. They are intentionally excluded from the configuration file to ensure accurate scanning results.
+
+py -3.12 -m pip install -r requirements.txt
+
+rmdir /s /q build
+rmdir /s /q dist
+py -3.12 -m PyInstaller IRMAS-AUTOMATE.spec --clean --noconfirm
