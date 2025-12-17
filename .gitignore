@@ -1,0 +1,8 @@
+venv/
+venv.zip
+extracted_links_page_*.txt
+.env
+output/
+__pycache__/
+chromium/
+chromium_profile/

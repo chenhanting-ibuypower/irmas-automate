@@ -1,0 +1,20 @@
+{
+  "7-Zip": {
+    "min_required_version": "25.01",
+    "match_type": "keyword",
+    "match_patterns": ["7-Zip"]
+  },
+  "Adobe Acrobat": {
+    "min_required_version": "25.001",
+    "match_type": "exact",
+    "match_patterns": [
+      "Adobe Acrobat",
+      "Adobe Acrobat (64-bit)",
+      "Adobe Acrobat Reader - Chinese Traditional"
+    ]
+  },
+  "Google Chrome": {
+    "min_required_version": "105.0.5195.102",
+    "match_type": "version_threshold"
+  }
+}
