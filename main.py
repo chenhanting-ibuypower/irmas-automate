@@ -18,6 +18,7 @@ IRMAS_OUTPUT_DIR = "./output/irmas"
 os.makedirs(IRMAS_OUTPUT_DIR, exist_ok=True)
 
 # List of websites to visit
+ldap_site = "https://ntpe.cht.com.tw/ldap/eo.aspx"
 irmas_site = "https://irmas.cht.com.tw"
 detail_results = []
 
@@ -89,17 +90,17 @@ def banned_software_finding_procedure(page: Page):
     # Load array directly (no object wrapper)
     banned_software_config_path = internal_path("config/banned_software.json")
     with open(banned_software_config_path, "r", encoding="utf-8") as f:
-        banned_keywords = json.load(f)
+        banned_softwares = json.load(f)
 
-    for keyword in banned_keywords:
+    for keyword in banned_softwares["keywords"]:
         print(f"Adding: {keyword}")
-
         page.fill("input[name='s101_data1']", keyword)
         page.click("input[name='s101_button']")
         # page.wait_for_timeout(800)
 
     with page.expect_request_finished(timeout=120000) as finished:
         page.locator("input[name='submit_data']").click(no_wait_after=True)
+
     print("Request completed:", finished.value.url)
 
     page.wait_for_load_state("networkidle")
@@ -108,8 +109,8 @@ def banned_software_finding_procedure(page: Page):
     # Extract the results table
     # -----------------------------
     print("Extracting results table...")
-
     results = extract_table(page)
+
     # Save to JSON
     with open(os.path.join(IRMAS_OUTPUT_DIR, "banned_softwares_report.json"), "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
@@ -469,7 +470,10 @@ def sanitize_filename(name: str) -> str:
     """Remove illegal characters from filename."""
     return re.sub(r'[\\/*?:"<>|]', "_", name).strip()
 
-def audit_specific_software(page: Page): 
+def audit_specific_software(page: Page):
+    # Login once
+    login = ChtSsoLogin()
+    login.ensure_login(page, irmas_site)
     page.goto(irmas_site + "/90303_00.php")
 
     # Create placeholder dict for config example
@@ -609,11 +613,10 @@ def run(playwright, enable_onedrive_dispatch: bool = True):
     )
 
     page = context.new_page()
-
     # Login once
     login = ChtSsoLogin()
-    # Ensure login for IRMAS
-    login.ensure_login(page, irmas_site)
+    # Ensure login for LDAP
+    login.ensure_login(page, ldap_site)
     address_book_exporter = AddressBookExporter(page)
     address_book_exporter.run()
     audit_specific_software(page)
