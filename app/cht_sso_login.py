@@ -54,7 +54,7 @@ class ChtSsoLogin:
         Adjust selector if your IdP changes.
         """
         try:
-            page.wait_for_selector('input[name="username"]', timeout=3000)
+            page.wait_for_selector('input[name="username"]', timeout=6000)
             return True
         except TimeoutError:
             return False
@@ -65,14 +65,21 @@ class ChtSsoLogin:
     def _card_login(self, page: Page, account: str):
         print("🔐 使用識別證登入模式")
 
-        # Enter account first (if needed)
-        page.fill('input[name="username"]', account)
-        page.click('input[name="login"]')
+        # Step 1️⃣: username step (may be skipped by SSO)
+        if self._has_username_input(page):
+            print("🧑 偵測到帳號輸入頁，填入帳號")
+            page.fill('input[name="username"]', account)
+            page.click('input[name="login"]')
 
-        # Switch login method
-        page.click("#try-another-way")
-        page.get_by_text("識別證登入").click()
+            # Switch login method if needed
+            if page.locator("#try-another-way").count() > 0:
+                page.click("#try-another-way")
+                page.get_by_text("識別證登入").click()
+        else:
+            print("ℹ️ 未偵測到帳號頁，SSO 直接進入卡片驗證")
 
+        # Step 2️⃣: card PIN
+        page.wait_for_selector("input[name='card_pin']", timeout=10000)
         card_password = self.card_password or pwinput.pwinput(
             "請輸入您的卡片密碼(通常是身分證後8碼): ", mask="*"
         )
@@ -80,7 +87,7 @@ class ChtSsoLogin:
         page.fill("input[name='card_pin']", card_password)
         page.click("#verify-button")
 
-        page.wait_for_timeout(20000)
+        page.wait_for_timeout(10000)
         page.wait_for_load_state("networkidle")
 
     # -----------------------------
@@ -154,3 +161,6 @@ class ChtSsoLogin:
 
         print("✔ Login successful!")
         return page
+
+    def _has_username_input(self, page: Page) -> bool:
+        return page.locator('input[name="username"]').count() > 0

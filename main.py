@@ -42,6 +42,36 @@ os.makedirs(CHROMIUM_PROFILE, exist_ok=True)
 if not os.path.exists(CHROMIUM_PATH):
     raise RuntimeError(f"Chromium not found: {CHROMIUM_PATH}")
 
+def run_software_query(page: Page, cat_label: str, values: list[str]):
+    """
+    Run a 軟體資料 query with given Cat label and input values
+    """
+    page.goto("https://irmas.cht.com.tw/90102_00.php")
+    page.wait_for_load_state("networkidle")
+    page.click("a[href='./90102_01.php?SubInfo=11']")
+    page.wait_for_load_state("networkidle")
+
+    print("Selecting 軟體資料...")
+    page.select_option("select[name='Item']", label="軟體資料")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(300)
+
+    print(f"Selecting Cat: {cat_label}")
+    page.select_option("select[name='Cat']", label=cat_label)
+    page.wait_for_timeout(300)
+
+    for value in values:
+        print(f"Adding {cat_label}: {value}")
+        page.fill("input[name='s101_data1']", value)
+        page.click("input[name='s101_button']")
+        page.wait_for_timeout(200)
+
+    with page.expect_request_finished(timeout=120000) as finished:
+        page.locator("input[name='submit_data']").click(no_wait_after=True)
+
+    print(f"{cat_label} request completed:", finished.value.url)
+    page.wait_for_load_state("networkidle")
+
 def banned_software_finding_procedure(page: Page):
     # ---------------------------------------------
     # 1️⃣ Click the “角色切換” button
@@ -59,11 +89,6 @@ def banned_software_finding_procedure(page: Page):
     page.click("font#STMtubtehr_0__5___TX")
     print("Clicked 電腦資料")
 
-    # ---------------------------------------------
-    # 3️⃣ Go to 主機資訊頁面
-    # ---------------------------------------------
-    print("Opening 主機資訊...")
-
     page.goto("https://irmas.cht.com.tw/90102_00.php")
     page.wait_for_load_state("networkidle")
 
@@ -72,44 +97,33 @@ def banned_software_finding_procedure(page: Page):
     page.wait_for_load_state("networkidle")
     print("Opened 主機資訊 page")
 
-    # ---------------------------------------------
-    # 4️⃣ Select 軟體資料 in the first dropdown (Item)
-    # ---------------------------------------------
-    print("Selecting 軟體資料...")
-    page.select_option("select[name='Item']", label="軟體資料")
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(300)
-
-    # ---------------------------------------------
-    # 5️⃣ Select 名稱 in the second dropdown (Cat)
-    # ---------------------------------------------
-    print("Selecting 名稱...")
-    page.select_option("select[name='Cat']", label="名稱")
-    page.wait_for_timeout(300)
-
-    # Load array directly (no object wrapper)
+    # Load config
     banned_software_config_path = internal_path("config/banned_software.json")
     with open(banned_software_config_path, "r", encoding="utf-8") as f:
         banned_softwares = json.load(f)
 
-    for keyword in banned_softwares["keywords"]:
-        print(f"Adding: {keyword}")
-        page.fill("input[name='s101_data1']", keyword)
-        page.click("input[name='s101_button']")
-        # page.wait_for_timeout(800)
+    # ---------------------------------------------
+    # 5️⃣ Search by 名稱
+    # ---------------------------------------------
+    run_software_query(
+        page,
+        cat_label="名稱",
+        values=banned_softwares["keywords"]
+    )
 
-    with page.expect_request_finished(timeout=120000) as finished:
-        page.locator("input[name='submit_data']").click(no_wait_after=True)
+    results_by_name = extract_table(page)
 
-    print("Request completed:", finished.value.url)
+    # ---------------------------------------------
+    # 6️⃣ Search by 廠商
+    # ---------------------------------------------
+    run_software_query(
+        page,
+        cat_label="廠商",
+        values=banned_softwares["manufacturers"]
+    )
 
-    page.wait_for_load_state("networkidle")
-
-    # -----------------------------
-    # Extract the results table
-    # -----------------------------
-    print("Extracting results table...")
-    results = extract_table(page)
+    results_by_manufacturer = extract_table(page)
+    results = [*results_by_name, *results_by_manufacturer]
 
     # Save to JSON
     with open(os.path.join(IRMAS_OUTPUT_DIR, "banned_softwares_report.json"), "w", encoding="utf-8") as f:
