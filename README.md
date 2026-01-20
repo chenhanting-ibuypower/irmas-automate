@@ -223,3 +223,82 @@ py -3.12 -m pip install -r requirements.txt
 rmdir /s /q build
 rmdir /s /q dist
 py -3.12 -m PyInstaller IRMAS-AUTOMATE.spec --clean --noconfirm
+
+---
+
+# 1️⃣2️⃣ **Clean Build & Run (One-Liner)**
+
+Use this when you want a fresh build and to run the resulting EXE:
+
+```powershell
+Remove-Item -Path "build","dist" -Recurse -Force -ErrorAction SilentlyContinue; py -3.12 -m PyInstaller IRMAS-AUTOMATE.spec --clean --noconfirm
+```
+
+Then run the executable:
+
+```powershell
+.\dist\IRMAS-AUTOMATE\IRMAS-AUTOMATE.exe
+```
+
+**Offline build note:** The build does **not** need internet as long as your venv already has all dependencies installed and the bundled `chromium/` folder is present. Network is only required when initially running `pip install` / `playwright install`.
+
+```powershell
+python -m PyInstaller --onedir --name "IRMAS-AUTOMATE" `
+--collect-all playwright `
+--hidden-import playwright `
+main.py
+```
+
+(backtick後面不能有空白)
+
+```powershell
+# Stop any running processes that might be locking the directories
+Get-Process | Where-Object {$_.Path -like "*\dist\*" -or $_.Path -like "*\build\*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+
+# Wait a moment for processes to fully release
+Start-Sleep -Seconds 1
+
+# Remove directories with force
+if (Test-Path "build") { Remove-Item -Path "build" -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path "dist") { Remove-Item -Path "dist" -Recurse -Force -ErrorAction SilentlyContinue }
+
+# Wait another moment
+Start-Sleep -Seconds 1
+
+# Run PyInstaller
+py -3.12 -m PyInstaller IRMAS-AUTOMATE.spec --clean --noconfirm
+```
+
+---
+
+## 🔧 **Troubleshooting: Failed to Load Python DLL**
+
+If you encounter `Failed to load Python DLL 'python312.dll'`:
+
+### **Solution 1: Clean Rebuild with --noupx**
+
+```powershell
+# Stop processes
+Get-Process | Where-Object {$_.Path -like "*\dist\*" -or $_.Path -like "*\build\*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+
+# Clean completely
+Remove-Item -Path "build","dist" -Recurse -Force -ErrorAction SilentlyContinue
+
+# Rebuild WITHOUT UPX compression (prevents DLL corruption)
+py -3.12 -m PyInstaller IRMAS-AUTOMATE.spec --clean --noconfirm --noupx
+```
+
+### **Solution 2: Install Visual C++ Redistributables**
+
+Download and install: [VC++ Redistributable 2015-2022 (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+
+### **Solution 3: Temporarily Disable Antivirus**
+
+Some antivirus software quarantines or corrupts Python DLLs during build. Temporarily disable it, rebuild, then re-enable.
+
+### **Solution 4: Verify DLL After Build**
+
+```powershell
+Test-Path ".\build\IRMAS-AUTOMATE\_internal\python312.dll"
+# Should return: True
+```

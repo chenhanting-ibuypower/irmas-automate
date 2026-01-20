@@ -629,8 +629,11 @@ def run(playwright, enable_onedrive_dispatch: bool = True):
     page = context.new_page()
     # Login once
     login = ChtSsoLogin()
-    # Ensure login for LDAP
-    login.ensure_login(page, ldap_site)
+    # Step 1: Ensure login for IRMAS first
+    print("🔐 Logging in to IRMAS...")
+    login.ensure_login(page, irmas_site)
+    # Step 2: Then navigate to LDAP
+    print(f"🌐 Navigating to LDAP...")
     address_book_exporter = AddressBookExporter(page)
     address_book_exporter.run()
     audit_specific_software(page)

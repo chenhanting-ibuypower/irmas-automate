@@ -1,50 +1,35 @@
 # -*- mode: python ; coding: utf-8 -*-
-
 from PyInstaller.utils.hooks import collect_all
-
-# 👇 single source of truth
-CRITICAL_PKGS = [
-    "playwright",
-    "numpy",
-    "pandas",
-    "lxml",
-    "openpyxl",
-]
 
 datas = []
 binaries = []
-hiddenimports = []
+hiddenimports = ['playwright', 'numpy', 'pandas', 'pandas._libs.tslibs.timedeltas', 'pandas._libs.tslibs.nattype', 'pandas._libs.tslibs.np_datetime', 'pandas._libs.skiplist']
+tmp_ret = collect_all('playwright')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-for pkg in CRITICAL_PKGS:
-    d, b, h = collect_all(pkg)
-    datas += d
-    binaries += b
-    hiddenimports += h
+tmp_ret = collect_all('numpy')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-# Explicit Playwright internals (important)
-hiddenimports += [
-    "playwright.sync_api",
-    "playwright._impl._api_structures",
-    "playwright._impl._driver",
-    "playwright._impl._connection",
-]
+tmp_ret = collect_all('pandas')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# Add config files and chromium
+datas += [('config', 'config'), ('chromium', 'chromium')]
+
 
 a = Analysis(
-    ["main.py"],
+    ['main.py'],
     pathex=[],
     binaries=binaries,
-    datas=[
-        ('config', 'config'),
-        ('chromium', 'chromium')
-    ],
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
+    optimize=0,
 )
-
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -52,18 +37,24 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="IRMAS-AUTOMATE",
+    name='IRMAS-AUTOMATE',
     debug=False,
+    bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
 )
-
 coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
-    name="IRMAS-AUTOMATE",
+    upx=False,
+    upx_exclude=[],
+    name='IRMAS-AUTOMATE',
 )
