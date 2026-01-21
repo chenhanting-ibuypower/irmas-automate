@@ -72,18 +72,45 @@ def run_software_query(page: Page, cat_label: str, values: list[str]):
     print(f"{cat_label} request completed:", finished.value.url)
     page.wait_for_load_state("networkidle")
 
-def banned_software_finding_procedure(page: Page):
+def select_irmas_role(page: Page):
+    """
+    Handle role selection for different users:
+    1. Click "角色切換" button
+    2. Try to navigate to 90102_00.php
+    3. If redirected to 0_auth2.php, select specific role
+    """
     # ---------------------------------------------
-    # 1️⃣ Click the “角色切換” button
+    # 1️⃣ Click the "角色切換" button
     # ---------------------------------------------
-    # <input type="button" value="角色切換">
     page.click("input[value='角色切換']")
     print("Clicked 角色切換")
 
     page.wait_for_load_state("networkidle")
 
     # ---------------------------------------------
-    # 2️⃣ Click the “電腦資料” menu item
+    # 2️⃣ Try to navigate to 90102_00.php
+    # ---------------------------------------------
+    try:
+        page.goto("https://irmas.cht.com.tw/90102_00.php")
+        page.wait_for_load_state("networkidle")
+        print("Successfully loaded 90102_00.php, role already selected")
+    except Exception as e:
+        print(f"Failed to load 90102_00.php: {e}")
+        # ---------------------------------------------
+        # 3️⃣ Check if redirected to role selection page
+        # ---------------------------------------------
+        if "0_auth2.php" in page.url:
+            print("Redirected to role selection page, clicking specific role...")
+            # Click the button with onclick="submit_admin_value('MTI2MjQ=')"
+            page.click("input[onclick=\"submit_admin_value('MTI2MjQ=')\"]") 
+            print("Selected role: MTI2MjQ=")
+            page.wait_for_load_state("networkidle")
+        else:
+            print("Error occurred but not on role selection page")
+
+def banned_software_finding_procedure(page: Page):
+    # ---------------------------------------------
+    # 1️⃣ Click the "電腦資料" menu item
     # ---------------------------------------------
     # <font id="STMtubtehr_0__5___TX">電腦資料</font>
     page.click("font#STMtubtehr_0__5___TX")
@@ -639,6 +666,7 @@ def run(playwright, enable_onedrive_dispatch: bool = True):
     audit_specific_software(page)
     # after all crawling jobs complete:
     run_outdated_scan()
+    select_irmas_role(page)
     banned_software_finding_procedure(page)
     query_antivirus_server_ip_range(page)    
     merger = IrmasReportMerger(base_dir=IRMAS_OUTPUT_DIR)
