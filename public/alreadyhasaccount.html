@@ -1,0 +1,161 @@
+<div class="card-pf">
+  <header class="login-pf-header">
+    <div id="kc-username" class="form-group">
+      <label id="kc-attempted-username">operation</label>
+      <a
+        id="reset-login"
+        href="/auth/realms/B2E/login-actions/restart?client_id=IRMAS-MAIN.OL.IT&amp;tab_id=yQirvIs-5D4"
+      >
+        <div class="kc-login-tooltip">
+          <i class="pficon pficon-arrow fa"></i>
+          <span class="kc-tooltip-text">重新登入流程</span>
+        </div>
+      </a>
+    </div>
+  </header>
+  <div id="kc-content">
+    <div id="kc-content-wrapper">
+      <div id="kc-form">
+        <div id="kc-form-wrapper">
+          <form
+            id="kc-form-login"
+            onsubmit="
+              login.disabled = true;
+              return true;
+            "
+            action="https://iam.cht.com.tw/auth/realms/B2E/login-actions/authenticate?session_code=_vsSvPGJ0GkehmE55XGvpWHU7ux5qeJI5NqN3fYAYg8&amp;execution=abb77b32-c82c-4f50-b3a5-592c16c19308&amp;client_id=IRMAS-MAIN.OL.IT&amp;tab_id=yQirvIs-5D4"
+            method="post"
+          >
+            <div class="form-group">
+              <label
+                for="password"
+                class="pf-c-form__label pf-c-form__label-text"
+                >密碼</label
+              >
+
+              <div class="pf-c-input-group">
+                <input
+                  tabindex="2"
+                  id="password"
+                  class="pf-c-form-control"
+                  name="password"
+                  type="password"
+                  autocomplete="off"
+                  maxlength="200"
+                  aria-invalid=""
+                  placeholder="輸入密碼"
+                  autofocus=""
+                />
+                <button
+                  class="pf-c-button pf-m-control"
+                  type="button"
+                  aria-label="showPassword"
+                  aria-controls="password"
+                  data-password-toggle=""
+                  data-label-show="showPassword"
+                  data-label-hide="hidePassword"
+                >
+                  <i class="fa fa-eye" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group login-pf-settings">
+              <div id="kc-form-options"></div>
+              <div class=""></div>
+            </div>
+
+            <div id="kc-form-buttons" class="form-group">
+              <input type="hidden" id="id-hidden-input" name="credentialId" />
+              <input
+                tabindex="4"
+                class="pf-c-button pf-m-primary pf-m-block btn-lg"
+                name="login"
+                id="kc-login"
+                type="submit"
+                value="下一步:發送驗證碼"
+              />
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script
+        type="module"
+        src="/auth/resources/wfuzk/login/mobile/js/passwordVisibility.js"
+      ></script>
+
+      <form
+        id="kc-select-try-another-way-form"
+        action="https://iam.cht.com.tw/auth/realms/B2E/login-actions/authenticate?session_code=_vsSvPGJ0GkehmE55XGvpWHU7ux5qeJI5NqN3fYAYg8&amp;execution=abb77b32-c82c-4f50-b3a5-592c16c19308&amp;client_id=IRMAS-MAIN.OL.IT&amp;tab_id=yQirvIs-5D4"
+        method="post"
+      >
+        <div class="form-group">
+          <input type="hidden" name="tryAnotherWay" value="on" />
+          <a
+            href="#"
+            id="try-another-way"
+            onclick="
+              document.forms['kc-select-try-another-way-form'].submit();
+              return false;
+            "
+            >切換其他認證方式</a
+          >
+        </div>
+      </form>
+
+      遇到問題?
+      <span
+        id="openModalBtn"
+        style="color: blue; text-decoration: underline; cursor: pointer"
+        >點我處理</span
+      >
+      <div class="modal-overlay" id="modalOverlay">
+        <div class="modal1">
+          <span class="close-btn" id="closeModalBtn">×</span>
+          <br /><br />
+          <div style="margin: 5px; font-size: 16px">
+            <a
+              href="https://dsacc.cht.com.tw/account/home.jsp"
+              target="_blank"
+              rel="noopener noreferrer"
+              >帳號作業(帳號申設與密碼變更，逾期與解鎖)</a
+            >
+            <br />
+            <a
+              href="https://chtra.cht.com.tw/ChtRAWebApp/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >憑證作業(員工憑證系統)</a
+            >
+            <br />
+          </div>
+          <div style="margin: 5px; font-size: 16px">
+            回報IAM系統與使用問題 <br />
+            電話: 02-23262433、02-23262434 <br />
+            信箱: emmhelp01@cht.com.tw <br />
+          </div>
+        </div>
+      </div>
+
+      <br />
+
+      登入即表示您已閱讀並同意中華電信資訊系統
+      <span
+        id="openModalBtn2"
+        style="color: blue; text-decoration: underline; cursor: pointer"
+        >使用條款</span
+      >
+      <div class="modal-overlay2" id="modalOverlay2">
+        <div class="modal2">
+          <span class="close-btn2" id="closeModalBtn2">×</span>
+          <br /><br />
+          <div style="margin: 5px">
+            **請務必遵守個人資料保護法及總公司相關規定，以免洩漏公司營業秘密及客戶資料。<br />
+            **您現在存取的是中華電信股份有限公司資訊系統，未經授權使用系統，本公司將保留法律追訴權，您的使用情形將會受到監控與記錄，使用本系統表示您已經同意被監控與記錄。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

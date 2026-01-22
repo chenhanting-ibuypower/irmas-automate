@@ -50,14 +50,31 @@ class ChtSsoLogin:
     # -----------------------------
     def _is_login_page(self, page: Page) -> bool:
         """
-        Heuristic: if the SSO username input exists, we treat it as login page.
-        Adjust selector if your IdP changes.
+        Heuristic: if the SSO username input exists, or password field exists, 
+        or kc-username (remembered account) exists, we treat it as login page.
         """
         try:
-            page.wait_for_selector('input[name="username"]', timeout=6000)
+            # Check for username input (new login)
+            page.wait_for_selector('input[name="username"]', timeout=3000)
             return True
         except TimeoutError:
-            return False
+            pass
+        
+        try:
+            # Check for password input (account remembered)
+            page.wait_for_selector('input[name="password"]', timeout=3000)
+            return True
+        except TimeoutError:
+            pass
+        
+        try:
+            # Check for remembered username display
+            page.wait_for_selector('#kc-username', timeout=3000)
+            return True
+        except TimeoutError:
+            pass
+        
+        return False
 
     # -----------------------------
     # 🟦 Smart card login flow
@@ -100,14 +117,25 @@ class ChtSsoLogin:
             "請輸入您的密碼: ", mask="*"
         )
 
-        # Fill account & go
-        page.fill('input[name="username"]', account)
-        page.click('input[name="login"]')
+        # Check if username field exists (account not remembered)
+        if self._has_username_input(page):
+            print("🧑 填入帳號...")
+            # Fill account & go
+            page.fill('input[name="username"]', account)
+            page.click('input[name="login"]')
+        else:
+            print("ℹ️ 帳號已被記憶，直接輸入密碼")
 
-        # Switch login method
-        page.click("#try-another-way")
-        page.get_by_text("OTP驗證").click()
+        # Wait for password page to load if we submitted username
+        page.wait_for_load_state("networkidle")
+        
+        # Check if we need to switch login method to OTP
+        if page.locator("#try-another-way").count() > 0:
+            page.click("#try-another-way")
+            page.get_by_text("OTP驗證").click()
+            page.wait_for_load_state("networkidle")
 
+        # Fill password
         page.fill("input[name='password']", password)
         page.click("#kc-login")
 
@@ -141,8 +169,13 @@ class ChtSsoLogin:
             url: Target system URL (IRMAS, MASIS, SPAS, etc.)
         """
         print(f"🌐 Navigating to: {url}")
-        page.goto(url)
-        page.wait_for_load_state("networkidle")
+        try:
+            # Use domcontentloaded instead of load to avoid timeout on slow pages
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_load_state("networkidle", timeout=30000)
+        except Exception as e:
+            print(f"⚠️ Page load timeout or error: {e}")
+            print("Continuing anyway...")
 
         # Check if we see login page
         if not self._is_login_page(page):

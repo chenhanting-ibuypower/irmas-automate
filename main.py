@@ -72,34 +72,16 @@ def run_software_query(page: Page, cat_label: str, values: list[str]):
     print(f"{cat_label} request completed:", finished.value.url)
     page.wait_for_load_state("networkidle")
 
-def select_irmas_role(page: Page):
+def check_and_handle_role_selection(page: Page):
     """
-    Handle role selection for different users:
-    1. Navigate to IRMAS
-    2. Click "角色切換" button
-    3. Check if redirected to 0_auth2.php
-    4. If yes, select specific role based on 管轄範圍
+    Check if current page is role selection page (0_auth2.php) and handle it.
+    This can happen after login or when navigating to certain pages.
     """
-    # ---------------------------------------------
-    # 1️⃣ Navigate to IRMAS first
-    # ---------------------------------------------
-    page.goto("https://irmas.cht.com.tw")
-    page.wait_for_load_state("networkidle")
-    print("Navigated to IRMAS")
+    current_url = page.url
+    print(f"[DEBUG] Current URL: {current_url}")
     
-    # ---------------------------------------------
-    # 2️⃣ Click the "角色切換" button
-    # ---------------------------------------------
-    page.click("input[value='角色切換']")
-    print("Clicked 角色切換")
-
-    page.wait_for_load_state("networkidle")
-
-    # ---------------------------------------------
-    # 2️⃣ Check if redirected to role selection page
-    # ---------------------------------------------
-    if "0_auth2.php" in page.url:
-        print("On role selection page...")
+    if "0_auth2.php" in page.url or "具備多重管理身分" in page.content():
+        print("✓ Detected role selection page, handling...")
         # Find the row where 管轄範圍 contains "/中華電信公司/新北營運處"
         rows = page.locator("table tr")
         row_count = rows.count()
@@ -119,22 +101,45 @@ def select_irmas_role(page: Page):
                     button = cells.nth(0).locator("input[type='button']")
                     if button.count() > 0:
                         button.click()
-                        print("Clicked role selection button")
+                        print("✓ Clicked role selection button")
                         page.wait_for_load_state("networkidle")
                         button_clicked = True
                         break
         
         if not button_clicked:
-            print("Role selection button for '新北營運處' not found, continuing...")
+            print("⚠ Role selection button for '新北營運處' not found, continuing...")
+        
+        return True  # Role selection was handled
     else:
-        print("Not on role selection page")
+        print("[DEBUG] Not a role selection page, continuing...")
+    return False  # Not a role selection page
+
+def select_irmas_role(page: Page):
+    """
+    Handle role selection for different users:
+    1. Click "角色切換" button (assumes already logged in to IRMAS)
+    2. Check if redirected to 0_auth2.php
+    3. If yes, select specific role based on 管轄範圍
+    """
+    # ---------------------------------------------
+    # 1️⃣ Click the "角色切換" button
+    # ---------------------------------------------
+    page.click("input[value='角色切換']")
+    print("Clicked 角色切換")
+
+    page.wait_for_load_state("networkidle")
+
+    # ---------------------------------------------
+    # 2️⃣ Check if redirected to role selection page
+    # ---------------------------------------------
+    check_and_handle_role_selection(page)
 
 def banned_software_finding_procedure(page: Page):
     # ---------------------------------------------
     # 1️⃣ Click the "電腦資料" menu item
     # ---------------------------------------------
     # <font id="STMtubtehr_0__5___TX">電腦資料</font>
-    page.click("font#STMtubtehr_0__5___TX")
+    page.click("font#STMtubtehr_0__5___TX", timeout=60000)
     print("Clicked 電腦資料")
 
     page.goto("https://irmas.cht.com.tw/90102_00.php")
@@ -171,14 +176,28 @@ def banned_software_finding_procedure(page: Page):
     )
 
     results_by_manufacturer = extract_table(page)
+    
+    # Combine and deduplicate results based on detail_link or value
     results = [*results_by_name, *results_by_manufacturer]
+    
+    # Deduplicate: keep only unique entries based on value+detail_link combination
+    seen = set()
+    unique_results = []
+    for row in results:
+        # Create a unique key based on value and detail_link (if exists)
+        key = (row["value"], row.get("detail_link", ""))
+        if key not in seen:
+            seen.add(key)
+            unique_results.append(row)
+    
+    results = unique_results
+    print(f"Total results after deduplication: {len(results)}")
 
     # Save to JSON
     with open(os.path.join(IRMAS_OUTPUT_DIR, "banned_softwares_report.json"), "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
     for row in results:
-
         # skip rows that have no detail link
         if "detail_link" not in row:
             print(f"Skipping (no detail link): {row['value']}")
@@ -188,16 +207,58 @@ def banned_software_finding_procedure(page: Page):
         value = row["value"]
 
         print(f"Visiting detail page for {value}: {url}")
-
         page.goto(url)
-        page.wait_for_load_state("networkidle")
-
-        detail_json = extract_detail_table(page, value)
-        detail_results.append(detail_json)
+        page.wait_for_load_state("domcontentloaded")  # Fast load, just DOM
+        
+        # Quick check: does this page have the data table?
+        has_table = page.locator("body > table").count() > 0
+        
+        if has_table:
+            # Table exists, try to extract immediately before any redirect
+            print("[DEBUG] Table found, extracting immediately...")
+            try:
+                detail_json = extract_detail_table(page, value)
+                
+                # Check if we got redirected during extraction
+                if "0_auth2.php" in page.url:
+                    print("[DEBUG] Silently redirected to role selection during extraction")
+                    raise Exception("Redirected to role selection")
+                    
+                detail_results.append(detail_json)
+            except Exception as e:
+                # Redirect happened during extraction
+                print(f"[DEBUG] Redirect occurred during extraction: {e}")
+                role_handled = check_and_handle_role_selection(page)
+                
+                if role_handled:
+                    print(f"Re-navigating to {url} after role selection...")
+                    page.goto(url)
+                    page.wait_for_load_state("domcontentloaded")
+                
+                detail_json = extract_detail_table(page, value)
+                detail_results.append(detail_json)
+        else:
+            # No table yet, might redirect to role selection
+            print("[DEBUG] No table found, checking for redirect...")
+            role_handled = check_and_handle_role_selection(page)
+            
+            if role_handled:
+                print(f"Re-navigating to {url} after role selection...")
+                page.goto(url)
+                page.wait_for_load_state("domcontentloaded")
+            
+            detail_json = extract_detail_table(page, value)
+            detail_results.append(detail_json)
 
     with open(os.path.join(IRMAS_OUTPUT_DIR, "banned_softwares_detail_report.json"), "w", encoding="utf-8") as f:
         json.dump(detail_results, f, ensure_ascii=False, indent=2)
         page.wait_for_timeout(800)
+    
+    # Ensure we're back on a valid IRMAS page before exiting
+    print("[DEBUG] Returning to IRMAS homepage...")
+    page.goto(irmas_site)
+    page.wait_for_load_state("networkidle")
+    check_and_handle_role_selection(page)
 
 # -----------------------------
 # Table Extraction Function
@@ -329,11 +390,16 @@ def query_antivirus_server_ip_range(page: Page, start=1, end=12):
     範例: 10.173.105.1 ~ 10.173.105.12 （不含 .3）
     """
     page.goto(irmas_site)
+    page.wait_for_load_state("networkidle")
+    
+    # Check if we need to handle role selection after navigating to homepage
+    check_and_handle_role_selection(page)
+    
     # ---------------------------------------------
-    # 2️⃣ Click the “電腦資料” menu item
+    # 2️⃣ Click the "電腦資料" menu item
     # ---------------------------------------------
     # <font id="STMtubtehr_0__5___TX">電腦資料</font>
-    page.click("font#STMtubtehr_0__5___TX")
+    page.click("font#STMtubtehr_0__5___TX", timeout=60000)
     print("Clicked 電腦資料")
 
     # ---------------------------------------------
@@ -391,10 +457,47 @@ def query_antivirus_server_ip_range(page: Page, start=1, end=12):
         print(f"Fetching detail page: {url}")
 
         page.goto(url)
-        page.wait_for_load_state("networkidle")
-
-        detail_json = extract_detail_table(page, value)
-        details[value]["detail"] = detail_json
+        page.wait_for_load_state("domcontentloaded")  # Fast load, just DOM
+        
+        # Quick check: does this page have the data table?
+        has_table = page.locator("body > table").count() > 0
+        
+        if has_table:
+            # Table exists, try to extract immediately before any redirect
+            print("[DEBUG] Table found, extracting immediately...")
+            try:
+                detail_json = extract_detail_table(page, value)
+                
+                # Check if we got redirected during extraction
+                if "0_auth2.php" in page.url:
+                    print("[DEBUG] Silently redirected to role selection during extraction")
+                    raise Exception("Redirected to role selection")
+                    
+                details[value]["detail"] = detail_json
+            except Exception as e:
+                # Redirect happened during extraction
+                print(f"[DEBUG] Redirect occurred during extraction: {e}")
+                role_handled = check_and_handle_role_selection(page)
+                
+                if role_handled:
+                    print(f"Re-navigating to {url} after role selection...")
+                    page.goto(url)
+                    page.wait_for_load_state("domcontentloaded")
+                
+                detail_json = extract_detail_table(page, value)
+                details[value]["detail"] = detail_json
+        else:
+            # No table yet, might redirect to role selection
+            print("[DEBUG] No table found, checking for redirect...")
+            role_handled = check_and_handle_role_selection(page)
+            
+            if role_handled:
+                print(f"Re-navigating to {url} after role selection...")
+                page.goto(url)
+                page.wait_for_load_state("domcontentloaded")
+            
+            detail_json = extract_detail_table(page, value)
+            details[value]["detail"] = detail_json
 
     with open(os.path.join(IRMAS_OUTPUT_DIR, "antivirus_summary.json"), "w", encoding="utf-8") as f:
         json.dump(antivirus_summary, f, ensure_ascii=False, indent=2)
@@ -672,15 +775,21 @@ def run(playwright, enable_onedrive_dispatch: bool = True):
     )
 
     page = context.new_page()
-    # Login once
-    login = ChtSsoLogin()
-    # Step 1: Ensure login for IRMAS first
-    print("🔐 Logging in to IRMAS...")
-    login.ensure_login(page, irmas_site)
-    # Step 2: Then navigate to LDAP
+    
+    # ========================================
+    # STEP 1: LDAP Address Book Export (Isolated)
+    # ========================================
     print(f"🌐 Navigating to LDAP...")
     address_book_exporter = AddressBookExporter(page)
     address_book_exporter.run()
+    
+    # ========================================
+    # STEP 2: IRMAS Operations
+    # ========================================
+    print("🔐 Logging in to IRMAS...")
+    login = ChtSsoLogin()
+    login.ensure_login(page, irmas_site)
+    
     select_irmas_role(page)
     audit_specific_software(page)
     # after all crawling jobs complete:
