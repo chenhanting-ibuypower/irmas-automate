@@ -76,8 +76,9 @@ def select_irmas_role(page: Page):
     """
     Handle role selection for different users:
     1. Click "角色切換" button
-    2. Try to navigate to 90102_00.php
-    3. If redirected to 0_auth2.php, select specific role
+    2. Check if redirected to 0_auth2.php
+    3. If yes, select specific role
+    4. Navigate to 90102_00.php
     """
     # ---------------------------------------------
     # 1️⃣ Click the "角色切換" button
@@ -88,25 +89,28 @@ def select_irmas_role(page: Page):
     page.wait_for_load_state("networkidle")
 
     # ---------------------------------------------
-    # 2️⃣ Try to navigate to 90102_00.php
+    # 2️⃣ Check if redirected to role selection page
     # ---------------------------------------------
-    try:
-        page.goto("https://irmas.cht.com.tw/90102_00.php")
-        page.wait_for_load_state("networkidle")
-        print("Successfully loaded 90102_00.php, role already selected")
-    except Exception as e:
-        print(f"Failed to load 90102_00.php: {e}")
-        # ---------------------------------------------
-        # 3️⃣ Check if redirected to role selection page
-        # ---------------------------------------------
-        if "0_auth2.php" in page.url:
-            print("Redirected to role selection page, clicking specific role...")
-            # Click the button with onclick="submit_admin_value('MTI2MjQ=')"
-            page.click("input[onclick=\"submit_admin_value('MTI2MjQ=')\"]") 
+    if "0_auth2.php" in page.url:
+        print("On role selection page...")
+        # Check if the specific role button exists before clicking
+        role_button = page.locator("input[onclick=\"submit_admin_value('MTI2MjQ=')\"]")
+        if role_button.count() > 0:
+            print("Role selection button found, clicking specific role...")
+            role_button.click()
             print("Selected role: MTI2MjQ=")
             page.wait_for_load_state("networkidle")
         else:
-            print("Error occurred but not on role selection page")
+            print("Role selection button not found, continuing...")
+    else:
+        print("Not on role selection page")
+    
+    # ---------------------------------------------
+    # 3️⃣ Navigate to 90102_00.php to ensure we're on the right page
+    # ---------------------------------------------
+    page.goto("https://irmas.cht.com.tw/90102_00.php")
+    page.wait_for_load_state("networkidle")
+    print("Navigated to 90102_00.php")
 
 def banned_software_finding_procedure(page: Page):
     # ---------------------------------------------
