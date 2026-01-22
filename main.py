@@ -777,20 +777,25 @@ def run(playwright, enable_onedrive_dispatch: bool = True):
     page = context.new_page()
     
     # ========================================
-    # STEP 1: LDAP Address Book Export (Isolated)
+    # STEP 1: Authenticate with CHT SSO first
+    # ========================================
+    print("🔐 Logging in to CHT SSO via IRMAS...")
+    login = ChtSsoLogin()
+    login.ensure_login(page, irmas_site)
+    
+    select_irmas_role(page)
+    
+    # ========================================
+    # STEP 2: LDAP Address Book Export (reuses SSO session)
     # ========================================
     print(f"🌐 Navigating to LDAP...")
     address_book_exporter = AddressBookExporter(page)
     address_book_exporter.run()
     
     # ========================================
-    # STEP 2: IRMAS Operations
+    # STEP 3: IRMAS Operations
     # ========================================
-    print("🔐 Logging in to IRMAS...")
-    login = ChtSsoLogin()
-    login.ensure_login(page, irmas_site)
-    
-    select_irmas_role(page)
+    print("📊 Starting IRMAS operations...")
     audit_specific_software(page)
     # after all crawling jobs complete:
     run_outdated_scan()
