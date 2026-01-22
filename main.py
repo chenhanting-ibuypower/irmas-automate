@@ -75,13 +75,20 @@ def run_software_query(page: Page, cat_label: str, values: list[str]):
 def select_irmas_role(page: Page):
     """
     Handle role selection for different users:
-    1. Click "角色切換" button
-    2. Check if redirected to 0_auth2.php
-    3. If yes, select specific role
-    4. Navigate to 90102_00.php
+    1. Navigate to IRMAS
+    2. Click "角色切換" button
+    3. Check if redirected to 0_auth2.php
+    4. If yes, select specific role based on 管轄範圍
     """
     # ---------------------------------------------
-    # 1️⃣ Click the "角色切換" button
+    # 1️⃣ Navigate to IRMAS first
+    # ---------------------------------------------
+    page.goto("https://irmas.cht.com.tw")
+    page.wait_for_load_state("networkidle")
+    print("Navigated to IRMAS")
+    
+    # ---------------------------------------------
+    # 2️⃣ Click the "角色切換" button
     # ---------------------------------------------
     page.click("input[value='角色切換']")
     print("Clicked 角色切換")
@@ -93,24 +100,34 @@ def select_irmas_role(page: Page):
     # ---------------------------------------------
     if "0_auth2.php" in page.url:
         print("On role selection page...")
-        # Check if the specific role button exists before clicking
-        role_button = page.locator("input[onclick=\"submit_admin_value('MTI2MjQ=')\"]")
-        if role_button.count() > 0:
-            print("Role selection button found, clicking specific role...")
-            role_button.click()
-            print("Selected role: MTI2MjQ=")
-            page.wait_for_load_state("networkidle")
-        else:
-            print("Role selection button not found, continuing...")
+        # Find the row where 管轄範圍 contains "/中華電信公司/新北營運處"
+        rows = page.locator("table tr")
+        row_count = rows.count()
+        
+        button_clicked = False
+        for i in range(row_count):
+            row = rows.nth(i)
+            cells = row.locator("td")
+            
+            # Check if row has 3 cells (button, 功能權限, 管轄範圍)
+            if cells.count() >= 3:
+                scope_cell = cells.nth(2)  # Third column is 管轄範圍
+                scope_text = scope_cell.inner_text().strip()
+                
+                if "/中華電信公司/新北營運處" in scope_text:
+                    print(f"Found matching role with scope: {scope_text}")
+                    button = cells.nth(0).locator("input[type='button']")
+                    if button.count() > 0:
+                        button.click()
+                        print("Clicked role selection button")
+                        page.wait_for_load_state("networkidle")
+                        button_clicked = True
+                        break
+        
+        if not button_clicked:
+            print("Role selection button for '新北營運處' not found, continuing...")
     else:
         print("Not on role selection page")
-    
-    # ---------------------------------------------
-    # 3️⃣ Navigate to 90102_00.php to ensure we're on the right page
-    # ---------------------------------------------
-    page.goto("https://irmas.cht.com.tw/90102_00.php")
-    page.wait_for_load_state("networkidle")
-    print("Navigated to 90102_00.php")
 
 def banned_software_finding_procedure(page: Page):
     # ---------------------------------------------
@@ -516,9 +533,6 @@ def sanitize_filename(name: str) -> str:
     return re.sub(r'[\\/*?:"<>|]', "_", name).strip()
 
 def audit_specific_software(page: Page):
-    # Login once
-    login = ChtSsoLogin()
-    login.ensure_login(page, irmas_site)
     page.goto(irmas_site + "/90303_00.php")
 
     # Create placeholder dict for config example
@@ -667,10 +681,10 @@ def run(playwright, enable_onedrive_dispatch: bool = True):
     print(f"🌐 Navigating to LDAP...")
     address_book_exporter = AddressBookExporter(page)
     address_book_exporter.run()
+    select_irmas_role(page)
     audit_specific_software(page)
     # after all crawling jobs complete:
     run_outdated_scan()
-    select_irmas_role(page)
     banned_software_finding_procedure(page)
     query_antivirus_server_ip_range(page)    
     merger = IrmasReportMerger(base_dir=IRMAS_OUTPUT_DIR)
